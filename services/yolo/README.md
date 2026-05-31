@@ -4,37 +4,17 @@ This is a FastAPI-based web service that performs object detection on uploaded i
 
 ## Setup Instructions
 
-1. Python 3 should be already installed on your Ubuntu  instance. Install some essential packages:
+1. Make sure the shared project virtualenv is activated (see the root README).
 
-```bash
-sudo apt update
-sudo apt install python3.14-venv python3-pip libgl1
-```
+1. Install requirements (from `services/yolo/`):
 
-1. Clone the repository and navigate to the project directory:
-```bash
-git clone https://github.com/alonitac/YoloService.git
-cd YoloService
-```
-
-
-1. Create Python virtual environment (venv) and activate it:
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-Python virtual environment is used to isolate project dependencies and ensure that the required packages are installed without affecting the global Python environment.
-
-Your terminal prompt should now indicate that you are in the virtual environment (e.g., `(.venv) ubuntu@hostname:~/$`).
-
-1. Install requirements:
 ```bash
 pip install -r torch-requirements.txt
 pip install -r requirements.txt
 ```
 
 1. Run the application:
+
 ```bash
 python app.py
 ```

@@ -7,18 +7,18 @@ A LangChain-powered AI vision agent with a manual ReAct loop. Accepts text and b
 - Python 3.10+
 - A running YOLO service (optional - only needed for `detect_objects`)
 
+
 ## Setup
 
+Install dependencies (from `services/agent/`):
+
 ```bash
-# From the repo root, activate the shared virtualenv (or create one)
-python -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-cd services/agent
 pip install -r requirements.txt
+```
 
-# Configure environment
+Configure environment:
+
+```bash
 cp .env.example .env
 # Edit .env and set at least OPENAI_API_KEY (or another provider key) and MODEL
 ```
