@@ -18,6 +18,7 @@ logging.getLogger("langchain_core").setLevel(logging.DEBUG)
 
 import httpx
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
@@ -25,6 +26,19 @@ from pydantic import BaseModel
 
 YOLO_SERVICE_URL = os.environ.get("YOLO_SERVICE_URL", "http://localhost:8080")
 MODEL = os.environ.get("MODEL")
+
+# Text-only models
+ALLOWED_MODELS = {
+    "openai:gpt-5.4-mini",
+    "anthropic:claude-haiku-4-5",
+}
+
+if MODEL not in ALLOWED_MODELS:
+    allowed_list = "\n  ".join(sorted(ALLOWED_MODELS))
+    raise SystemExit(
+        f"\n[ERROR] MODEL='{MODEL}' is not allowed.\n"
+        f"Set MODEL in your .env to one of the supported text-only models:\n  {allowed_list}\n"
+    )
 
 SYSTEM_PROMPT = (
     "You are an AI vision assistant. You help users understand and analyze images. "
@@ -58,17 +72,14 @@ TOOLS = {
 llm = init_chat_model(MODEL, temperature=0)
 llm_with_tools = llm.bind_tools(list(TOOLS.values()))
 
-def run_agent(user_message: str) -> str:
+def run_agent(history: list) -> str:
     """
     Simple ReAct loop:
       1. Send messages to the LLM.
       2. If the LLM requests tool calls, execute them and append results.
       3. Repeat until the LLM returns a plain text response.
     """
-    messages = [
-        SystemMessage(content=SYSTEM_PROMPT),
-        HumanMessage(content=user_message),
-    ]
+    messages = [SystemMessage(content=SYSTEM_PROMPT)] + history
 
     while True:
         response: AIMessage = llm_with_tools.invoke(messages)
@@ -87,10 +98,22 @@ def run_agent(user_message: str) -> str:
 
 app = FastAPI(title="Vision Agent")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["POST", "GET"],
+    allow_headers=["Content-Type"],
+)
+
+
+class ChatMessage(BaseModel):
+    role: str                           # "user" or "assistant"
+    content: str
+    image_base64: Optional[str] = None  # only on user messages that carry an image
+
 
 class ChatRequest(BaseModel):
-    message: str = ""
-    image_base64: Optional[str] = None  # base64-encoded image (JPEG / PNG)
+    messages: list[ChatMessage]         # full conversation thread, oldest first
 
 
 class ChatResponse(BaseModel):
@@ -99,10 +122,23 @@ class ChatResponse(BaseModel):
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    token = _current_image_b64.set(request.image_base64)
+    lc_messages = []
+    latest_image = None
+
+    for msg in request.messages:
+        if msg.role == "user":
+            if msg.image_base64:
+                latest_image = msg.image_base64          # saved for detect_objects tool
+                content = msg.content + "\n[An image was uploaded. Use existing tools to analyze it according to user instructions.]"
+            else:
+                content = msg.content
+            lc_messages.append(HumanMessage(content=content))
+        else:
+            lc_messages.append(AIMessage(content=msg.content))
+
+    token = _current_image_b64.set(latest_image)
     try:
-        content = request.message or "What's in this image?"
-        return ChatResponse(response=run_agent(content))
+        return ChatResponse(response=run_agent(lc_messages))
     finally:
         _current_image_b64.reset(token)
 
