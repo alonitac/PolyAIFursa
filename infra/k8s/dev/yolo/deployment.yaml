@@ -5,7 +5,7 @@ metadata:
   labels:
     app: yolo-service
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: yolo-service
@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: server
-        image: docker.io/alonithuji/yolo-service:0.0.1
+        image: docker.io/alonithuji/yolo-service:0.0.2
         ports:
         - containerPort: 8080
